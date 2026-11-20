@@ -1,0 +1,35 @@
+{
+  "name": "@dotcom-dev/go-debug",
+  "version": "0.1.0",
+  "description": "GoDebug: local-only debug tool that shows the queries and outgoing HTTP calls each request made",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devportolio/go-debug.git"
+  },
+  "main": "./register.cjs",
+  "exports": {
+    ".": "./register.cjs",
+    "./register": "./register.cjs",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "go-debug": "./bin/go-debug.cjs",
+    "start:go-debug": "./bin/start-go-debug.cjs"
+  },
+  "files": [
+    "register.cjs",
+    "page.html",
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/attribution.test.cjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "pg": ">=8"
+  }
+}

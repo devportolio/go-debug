@@ -1,0 +1,644 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>GoDebug</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22%3E%3Crect width=%2224%22 height=%2224%22 rx=%226%22 fill=%22%234a4fd8%22/%3E%3Ccircle cx=%2210.5%22 cy=%2210.5%22 r=%224.5%22 stroke=%22%23fff%22 stroke-width=%222%22/%3E%3Cpath d=%22M14 14l4.5 4.5%22 stroke=%22%23fff%22 stroke-width=%222%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<style>
+:root{--bg:#f4f5f8;--card:#fff;--text:#1c2330;--muted:#667085;--line:#dfe3ea;--accent:#4a4fd8;--accent-soft:#eceefd;--warn:#b54708;--ok:#067647;--bad:#b42318}
+@media (prefers-color-scheme:dark){:root{--bg:#13151a;--card:#1c2028;--text:#e8ebf0;--muted:#98a2b3;--line:#2f3642;--accent:#8f94ff;--accent-soft:#262a45;--warn:#fdb022;--ok:#47cd89;--bad:#f97066}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,sans-serif}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.shell{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}
+.side{padding:20px 14px;border-right:1px solid var(--line);position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;line-height:1.25;padding:0 10px;margin-bottom:14px}.brand small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.logo{width:30px;height:30px;flex:none}
+.nav a{display:flex;justify-content:space-between;padding:8px 10px;border-radius:8px;color:var(--text)}
+.nav a:hover{background:var(--accent-soft);text-decoration:none}
+.nav a.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.nav a span{color:var(--muted);font-variant-numeric:tabular-nums;font-weight:400}
+.services{overflow-y:auto;min-height:0}
+.svcrow{display:flex;align-items:center;gap:8px;width:100%;padding:5px 10px;border:0;border-radius:8px;background:none;color:var(--text);font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.svcrow:hover{background:var(--accent-soft)}.svcrow.off{color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;border:1.5px solid var(--muted)}
+.dot.connected{background:var(--ok);border-color:var(--ok)}
+.tools{float:right;display:flex;gap:8px;margin:-3px 0 0 16px}
+.tool{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--muted);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.tool svg{width:15px;height:15px;flex:none}
+.tool:hover{border-color:var(--accent);color:var(--accent)}
+.tool.live{color:var(--ok)}.tool.live svg{animation:spin 2s linear infinite}
+.tool.offline{color:var(--warn);border-color:var(--warn)}
+.tool:disabled{opacity:.5;cursor:default}
+.offline-note{overflow:hidden;margin:0 0 14px;padding:7px 12px;border:1px solid var(--warn);border-radius:8px;color:var(--warn);font-size:13px}
+.side.offline .services,.side.offline .nav span{opacity:.45}
+.tool.danger:hover{border-color:var(--bad);color:var(--bad)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.tool.live svg{animation:none}}
+.main{padding:22px 24px;min-width:0}
+h1{font-size:19px;margin:0 0 14px;word-break:break-word}h2{font-size:14px;margin:0 0 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:16px;overflow:hidden}
+.card.pad{padding:16px}
+.bar{display:flex;gap:12px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.bar input{flex:1;min-width:0;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font:inherit}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+td.n,th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+td.t{white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}
+tr.click{cursor:pointer}tr.click:hover td{background:var(--accent-soft)}
+.mono{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-word}
+.clip{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tag{display:inline-block;font:600 11px ui-monospace,monospace;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-right:6px;text-transform:uppercase;white-space:nowrap}
+.tag.svc{color:var(--accent);border-color:var(--accent);text-transform:none}.tag.ok{color:var(--ok);border-color:var(--ok)}.tag.bad{color:var(--bad);border-color:var(--bad)}.tag.warn{color:var(--warn);border-color:var(--warn)}
+.warn{color:var(--warn);font-weight:600}.better{color:var(--ok);font-weight:600}.worse{color:var(--bad);font-weight:600}
+.headline{font-size:26px;font-weight:650;font-variant-numeric:tabular-nums}
+.btn{padding:7px 12px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;cursor:pointer;white-space:nowrap}.btn:disabled{background:transparent;color:var(--muted);border-color:var(--line);cursor:default}
+td.pick{width:1%;cursor:pointer}tr.picked td{background:var(--accent-soft)}.muted{color:var(--muted)}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.stats{display:flex;flex-wrap:wrap;gap:28px}.stats div span{display:block;color:var(--muted);font-size:12px}.stats b{font-size:22px;font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);padding:0 8px;flex-wrap:wrap}
+.tabs button{padding:10px 12px;border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);font:inherit;cursor:pointer}
+.tabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+pre{margin:0;white-space:pre-wrap;word-break:break-word;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre.box{padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;max-height:360px;overflow:auto}
+dl{display:grid;grid-template-columns:minmax(120px,220px) minmax(0,1fr);margin:0}
+dt,dd{padding:8px 12px;border-bottom:1px solid var(--line);margin:0}dt{color:var(--muted)}dd{word-break:break-word}
+button.link{padding:0;border:0;background:none;color:var(--accent);font:inherit;cursor:pointer}
+.exec{margin-top:8px;padding:6px 10px;border-left:3px solid var(--line)}
+td.q{width:100%;max-width:0}
+.qrow{display:flex;align-items:center;gap:8px}
+.qtoggle{flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:0;border:0;background:none;color:var(--text);cursor:pointer;text-align:left}
+.chev{flex:none;width:10px;color:var(--muted);font-size:10px}
+.qline{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qpick{flex:none;max-width:210px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--text);font:inherit;font-size:12px}
+.copy{flex:none;display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--muted);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.copy:hover{border-color:var(--accent);color:var(--accent)}.copy.done{border-color:var(--ok);color:var(--ok)}.copy.failed{border-color:var(--bad);color:var(--bad)}
+.copy svg{width:13px;height:13px;flex:none}
+.qfull{margin-top:8px}
+.qrow .tag{flex:none;margin-right:0}
+.txstrip{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.txchip{padding:3px 9px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--text);font:inherit;font-size:12px;cursor:pointer}
+.txchip:hover{border-color:var(--accent)}
+tr.txhead td{padding:6px 12px;background:var(--bg);font-size:12px;color:var(--muted)}
+tr.intx td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.committed{color:var(--ok);font-weight:600}.rolled{color:var(--bad);font-weight:600}.unfinished{color:var(--warn);font-weight:600}
+@media (max-width:760px){.shell{grid-template-columns:1fr}.side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}.nav{display:flex;gap:4px;flex-wrap:wrap}.main{padding:16px}}
+</style></head><body>
+<div class="shell">
+<aside class="side">
+<div class="brand"><svg class="logo" aria-hidden="true" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#4a4fd8"/><circle cx="10.5" cy="10.5" r="4.5" stroke="#fff" stroke-width="2"/><path d="M14 14l4.5 4.5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg><div>GoDebug<small>All services</small></div></div>
+<nav class="nav">
+<a href="/requests" data-nav="requests">Requests <span id="countRequests"></span></a>
+</nav>
+<div class="services"><div class="muted" style="font-size:12px;margin:14px 10px 4px">Services</div><div id="services"></div></div>
+</aside>
+<div class="main">
+<div class="tools">
+<button class="tool live" id="pause" type="button" aria-pressed="false" title="Updating automatically. Click to pause.">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+<span id="pauseLabel">Live</span></button>
+<button class="tool danger" id="clear" type="button" title="Clear all recorded requests for every service">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+Clear</button>
+</div>
+<div class="offline-note" id="offlineNote" role="status" hidden><b>Offline.</b> The service is not answering; it may be restarting or stopped. This is the last list received, and it updates again when the service is back.</div>
+<div id="view"></div>
+</div>
+</div>
+<script>
+const view=document.getElementById('view');
+const state={paused:false,offline:false,lastList:null,details:new Map(),tab:'queries',open:new Set(),pick:new Map(),search:{requests:'',queries:'',http:''},grouped:true,selected:[],onlyChanged:true};
+let renderToken=0;
+
+// ---- helpers ----
+function el(tag,attrs,...children){
+  const node=document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs||{})){
+    if(v===null||v===undefined||v===false){continue;}
+    if(k==='class'){node.className=v;}
+    else if(k.startsWith('on')){node[k]=v;}
+    else if(k==='text'){node.textContent=v;}
+    else{node.setAttribute(k,v===true?'':v);}
+  }
+  for(const child of children.flat(Infinity)){
+    if(child===null||child===undefined||child===false){continue;}
+    node.append(child.nodeType?child:document.createTextNode(String(child)));
+  }
+  return node;
+}
+const api=async(path)=>{const r=await fetch('/api'+path);return r.ok?r.json():null;};
+const time=(value)=>new Date(value).toLocaleTimeString();
+const ms=(value)=>value===null||value===undefined?'–':value+' ms';
+function link(path,text,cls){return el('a',{href:path,class:cls,onclick:(e)=>{e.preventDefault();e.stopPropagation();go(path);}},text);}
+function statusTag(status,error){
+  if(error){return el('span',{class:'tag bad',title:error},'failed');}
+  if(status===null||status===undefined){return el('span',{class:'tag'},'pending');}
+  return el('span',{class:'tag '+(status>=500?'bad':status>=400?'warn':'ok')},status);
+}
+function matchText(search,text){
+  const words=search.toLowerCase().split(/\s+/).filter(Boolean);
+  const hay=String(text).toLowerCase();
+  return words.every((w)=>w.startsWith('-')?(w.length===1||!hay.includes(w.slice(1))):hay.includes(w));
+}
+function requestLabel(r){return r.operationName||r.url;}
+function parentLink(entry){return entry.requestId?link('/requests/'+entry.requestId,entry.operation):el('span',{class:'muted'},'background');}
+function searchBar(kind,placeholder,extra){
+  const input=el('input',{type:'search',placeholder,spellcheck:'false',value:state.search[kind]});
+  input.oninput=()=>{state.search[kind]=input.value;route(true);};
+  input.dataset.search=kind;
+  return el('div',{class:'bar'},input,extra);
+}
+function table(headers,rows,emptyText){
+  if(!rows.length){return el('div',{class:'empty'},emptyText);}
+  return el('div',{class:'scroll'},el('table',{},
+    el('thead',{},el('tr',{},headers.map(([text,cls])=>el('th',{class:cls},text)))),
+    el('tbody',{},rows)));
+}
+function headersList(headers){
+  const entries=Object.entries(headers||{});
+  if(!entries.length){return el('div',{class:'empty'},'No headers recorded.');}
+  return el('dl',{},entries.flatMap(([k,v])=>[el('dt',{class:'mono'},k),el('dd',{class:'mono'},v)]));
+}
+function backLink(entry){return entry.requestId?link('/requests/'+entry.requestId,'← '+entry.operation):link('/requests','← Requests');}
+function bodyBlock(body,emptyText){
+  if(!body){return el('p',{class:'muted',style:'margin:0'},emptyText);}
+  if(body.text===null){return el('p',{class:'muted',style:'margin:0'},'Not shown: '+body.note+(body.bytes?' ('+body.bytes+' bytes)':''));}
+  let text=body.text;
+  if(!body.truncated){try{text=JSON.stringify(JSON.parse(text),null,2);}catch(e){}}
+  return [el('pre',{class:'box'},text),
+    body.truncated&&el('p',{class:'muted',style:'margin:8px 0 0'},'Showing the first '+body.text.length+' characters'+(body.bytes?' of '+body.bytes+' bytes':'')+'.')];
+}
+function notFound(what){return [el('h1',{},what+' not found'),el('p',{class:'muted'},'It may have been cleared or pushed out by newer entries.')];}
+
+// ---- copying a query with its values ----
+const quote=(text)=>"'"+String(text).replace(/'/g,"''")+"'";
+function arrayLiteral(list){
+  return '{'+list.map((item)=>{
+    if(item===null){return 'NULL';}
+    if(Array.isArray(item)){return arrayLiteral(item);}
+    if(typeof item==='number'||typeof item==='boolean'){return String(item);}
+    const text=typeof item==='string'?item:JSON.stringify(item);
+    return '"'+text.replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';
+  }).join(',')+'}';
+}
+// A recorded parameter is the JSON text of the value; dates and cut-off values are plain text.
+function sqlLiteral(param){
+  if(param==='undefined'){return 'NULL';}
+  // Kept as written: parsing a long integer as a number would change its last digits.
+  if(/^-?\d+(\.\d+)?$/.test(param)){return param;}
+  let value;
+  try{value=JSON.parse(param);}catch(e){return quote(param);}
+  if(value===null){return 'NULL';}
+  if(typeof value==='number'||typeof value==='boolean'){return String(value);}
+  if(typeof value==='string'){return quote(value);}
+  if(Array.isArray(value)){return quote(arrayLiteral(value));}
+  return quote(JSON.stringify(value));
+}
+// Replaces $1, $2, ... with their values, leaving strings, quoted names and comments untouched.
+function inlineParams(sql,params){
+  let out='';
+  let i=0;
+  const missing=new Set();
+  const keep=(end)=>{out+=sql.slice(i,end);i=end;};
+  while(i<sql.length){
+    const ch=sql[i];
+    if(ch==="'"||ch==='"'){
+      let j=i+1;
+      while(j<sql.length){
+        if(sql[j]===ch){
+          if(sql[j+1]===ch){j+=2;continue;}
+          break;
+        }
+        j++;
+      }
+      keep(Math.min(j+1,sql.length));continue;
+    }
+    if(ch==='-'&&sql[i+1]==='-'){const j=sql.indexOf('\n',i);keep(j===-1?sql.length:j);continue;}
+    if(ch==='/'&&sql[i+1]==='*'){const j=sql.indexOf('*/',i+2);keep(j===-1?sql.length:j+2);continue;}
+    if(ch==='$'&&!/[A-Za-z0-9_$]/.test(sql[i-1]||'')){
+      const placeholder=/^\$(\d+)/.exec(sql.slice(i,i+12));
+      if(placeholder){
+        const index=Number(placeholder[1])-1;
+        if(index<params.length){out+=sqlLiteral(params[index]);}
+        else{out+=placeholder[0];missing.add(placeholder[0]);}
+        i+=placeholder[0].length;continue;
+      }
+      const tag=/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/.exec(sql.slice(i,i+80));
+      if(tag){const j=sql.indexOf(tag[0],i+tag[0].length);keep(j===-1?sql.length:j+tag[0].length);continue;}
+    }
+    out+=ch;i++;
+  }
+  return {text:out,missing:[...missing]};
+}
+function queryWithValues(raw,params){
+  const {text,missing}=inlineParams(raw,params);
+  const notes=[];
+  const cut=params.map((param,index)=>param.length>300&&param.endsWith('…')?'$'+(index+1):null).filter(Boolean);
+  if(cut.length){notes.push('-- '+cut.join(', ')+' was cut off at 300 characters when recorded, so its value here is incomplete');}
+  if(missing.length){notes.push('-- no value was recorded for '+missing.join(', '));}
+  const sql=text.trim();
+  return notes.concat(/;$/.test(sql)?sql:sql+';').join('\n');
+}
+async function copyText(text){
+  try{await navigator.clipboard.writeText(text);return true;}
+  catch(e){
+    const area=el('textarea',{style:'position:fixed;top:0;left:0;opacity:0'});
+    area.value=text;document.body.append(area);area.select();
+    let ok=false;
+    try{ok=document.execCommand('copy');}catch(e2){ok=false;}
+    area.remove();
+    return ok;
+  }
+}
+const COPY_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+function copyButton(getText){
+  const button=el('button',{class:'copy',type:'button',title:'Copy the SQL with its parameter values filled in'});
+  button.innerHTML=COPY_ICON;
+  const label=el('span',{},'Copy');
+  button.append(label);
+  button.onclick=async(event)=>{
+    event.stopPropagation();
+    const ok=await copyText(getText());
+    button.classList.add(ok?'done':'failed');label.textContent=ok?'Copied':'Copy failed';
+    setTimeout(()=>{button.classList.remove('done','failed');label.textContent='Copy';},1500);
+  };
+  return button;
+}
+const oneLine=(sql)=>sql.replace(/\s+/g,' ').trim();
+function paramsPreview(params){
+  const text=params.join(', ');
+  return text.length>60?text.slice(0,60)+'…':text;
+}
+
+// ---- writes and transactions ----
+function verbOf(raw){
+  const text=raw.replace(/^(\s|\(|--[^\n]*\n|\/\*[\s\S]*?\*\/)+/,'');
+  const first=(text.match(/^[a-z]+/i)||[''])[0].toLowerCase();
+  if(first==='with'){
+    // A statement that starts with WITH can still write.
+    const write=text.match(/\b(insert\s+into|update\s+\S+\s+set|delete\s+from)\b/i);
+    return write?write[1].split(/\s+/)[0].toLowerCase():'select';
+  }
+  return {start:'begin',end:'commit',abort:'rollback'}[first]||first;
+}
+const WRITE_VERBS=['insert','update','delete','merge','truncate'];
+const TRANSACTION_VERBS=['begin','commit','rollback','savepoint','release'];
+const isWrite=(raw)=>WRITE_VERBS.includes(verbOf(raw));
+function verbTag(raw){
+  const verb=verbOf(raw);
+  if(WRITE_VERBS.includes(verb)){return el('span',{class:'tag warn',title:'This statement writes data'},verb);}
+  if(TRANSACTION_VERBS.includes(verb)){return el('span',{class:'tag'},verb);}
+  return null;
+}
+const OUTCOME_CLASS={committed:'committed','rolled back':'rolled','not finished':'unfinished'};
+function transactionLabel(t,number){
+  return ['Transaction '+number+' · ',el('span',{class:OUTCOME_CLASS[t.outcome]},t.outcome),' · '+t.statements+' statement'+(t.statements===1?'':'s')+' · '+ms(t.ms)];
+}
+
+// ---- lists ----
+function toggleSelected(id){
+  if(state.selected.includes(id)){state.selected=state.selected.filter((x)=>x!==id);}
+  else{state.selected=[...state.selected,id].slice(-2);}
+  route(true);
+}
+async function requestsPage(){
+  // While the service is down the last list received is shown instead of nothing.
+  let rows;
+  try{rows=(await api('/requests'))||[];state.lastList=rows;}
+  catch(e){if(!state.lastList){throw e;}rows=state.lastList;}
+  state.selected=state.selected.filter((id)=>rows.some((r)=>r.id===id));
+  const shown=rows.filter((r)=>matchText(state.search.requests,(r.services||[r.service]).join(' ')+' '+requestLabel(r)+' '+r.url+' '+r.status));
+  const picked=state.selected.length;
+  const compare=el('button',{class:'btn',disabled:picked!==2,onclick:()=>{
+    // The older request is the baseline.
+    const [first,second]=state.selected.map((id)=>rows.find((r)=>r.id===id)).sort((x,y)=>new Date(x.startedAt)-new Date(y.startedAt));
+    go('/compare/'+first.id+'/'+second.id);
+  }},picked===2?'Compare selected':'Select 2 to compare'+(picked?' ('+picked+'/2)':''));
+  return [el('h1',{},'Requests'),el('div',{class:'card'},
+    searchBar('requests','Filter by service, operation, URL or status',compare),
+    table([[''],['Time'],['Service'],['Request'],['Status'],['Queries','n'],['Repeated','n'],['Writes','n'],['HTTP','n'],['Duration','n']],
+      shown.map((r)=>el('tr',{class:'click'+(state.selected.includes(r.id)?' picked':''),onclick:()=>go('/requests/'+r.id)},
+        el('td',{class:'pick',onclick:(e)=>{e.stopPropagation();toggleSelected(r.id);}},
+          el('input',{type:'checkbox',checked:state.selected.includes(r.id),'aria-label':'Select '+requestLabel(r)+' for comparison'})),
+        el('td',{class:'t'},time(r.startedAt)),
+        el('td',{},serviceTags(r)),
+        el('td',{},el('span',{class:'tag'},r.operationType||r.method),link('/requests/'+r.id,requestLabel(r))),
+        el('td',{},statusTag(r.status)),
+        el('td',{class:'n'},r.dbCalls),
+        el('td',{class:'n'+(r.repeated?' warn':'')},r.repeated||'–'),
+        el('td',{class:'n'+(r.writes?' warn':'')},r.writes||'–'),
+        el('td',{class:'n'},r.httpCalls||'–'),
+        el('td',{class:'n'},ms(r.durationMs)))),
+      rows.length?'Nothing matches the filter.':'No requests yet. Trigger a query or mutation and it will appear here, from every service running GoDebug.'))];
+}
+
+// ---- compare two requests ----
+function change(before,after,unit){
+  const delta=Math.round((after-before)*10)/10;
+  if(delta===0){return el('span',{class:'muted'},'no change');}
+  const sign=delta>0?'+':'−';
+  const cls=delta>0?'worse':'better';
+  const amount=sign+Math.abs(delta)+(unit||'');
+  if(before===0){return el('span',{class:cls},amount+' (new)');}
+  const percent=Math.abs(delta)/before*100;
+  return el('span',{class:cls},sign+(percent>=100||percent===Math.round(percent)?Math.round(percent):percent.toFixed(1))+'%',el('span',{class:'muted'},' ('+amount+')'));
+}
+function compareCard(label,r){
+  return el('div',{class:'card pad',style:'margin:0'},
+    el('div',{class:'muted'},label),
+    el('div',{style:'font-weight:600;margin:2px 0'},serviceTags(r),el('span',{class:'tag'},r.operationType||r.method),link('/requests/'+r.id,requestLabel(r))),
+    el('div',{class:'muted'},new Date(r.startedAt).toLocaleString()+' · '+r.dbCalls+' queries · '+ms(r.durationMs)));
+}
+async function comparePage(beforeId,afterId){
+  const [before,after]=await Promise.all([api('/requests/'+beforeId),api('/requests/'+afterId)]);
+  if(!before||!after){return notFound('One of the two requests was');}
+  const metrics=[
+    ['DB calls',before.dbCalls,after.dbCalls,''],
+    ['Distinct statements',before.statements.length,after.statements.length,''],
+    ['Repeated DB calls',before.repeated,after.repeated,''],
+    ['DB time',before.dbMs,after.dbMs,' ms'],
+    ['Outgoing HTTP calls',before.httpCalls,after.httpCalls,''],
+    ['Total duration',before.durationMs??0,after.durationMs??0,' ms'],
+  ];
+  const bySql=new Map();
+  for(const st of before.statements){bySql.set(st.sql,{raw:st.raw,before:st.calls,after:0});}
+  for(const st of after.statements){const row=bySql.get(st.sql)||{raw:st.raw,before:0,after:0};row.after=st.calls;bySql.set(st.sql,row);}
+  const search=state.search.detail||'';
+  const statements=[...bySql.values()]
+    .filter((row)=>(!state.onlyChanged||row.before!==row.after)&&matchText(search,row.raw))
+    .sort((x,y)=>Math.abs(y.after-y.before)-Math.abs(x.after-x.before)||y.before-x.before);
+  const input=el('input',{type:'search',placeholder:'Filter statements',spellcheck:'false',value:search});
+  input.dataset.search='detail';
+  input.oninput=()=>{state.search.detail=input.value;route(true);};
+  const sameOperation=requestLabel(before)===requestLabel(after)&&before.service===after.service;
+  return [
+    el('div',{style:'margin-bottom:10px'},link('/requests','← Requests')),
+    el('h1',{},'Compare requests'),
+    el('div',{style:'display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:16px'},
+      compareCard('Before (baseline)',before),compareCard('After',after)),
+    !sameOperation&&el('p',{class:'warn'},'These are two different operations, so the difference is not a like-for-like comparison.'),
+    el('div',{class:'card pad'},
+      el('div',{class:'muted'},'DB calls'),
+      el('div',{class:'headline'},before.dbCalls+' → '+after.dbCalls+' ',change(before.dbCalls,after.dbCalls,'')),
+      el('div',{style:'margin-top:8px'},link('/compare/'+afterId+'/'+beforeId,'Swap before and after'))),
+    el('div',{class:'card'},table([['Metric'],['Before','n'],['After','n'],['Change','n']],
+      metrics.map(([label,x,y,unit])=>el('tr',{},el('td',{},label),el('td',{class:'n'},x+unit),el('td',{class:'n'},y+unit),el('td',{class:'n'},change(x,y,unit)))),'')),
+    el('div',{class:'card'},
+      el('div',{class:'bar'},input,el('label',{class:'check'},el('input',{type:'checkbox',checked:state.onlyChanged,onchange:(e)=>{state.onlyChanged=e.target.checked;route(true);}}),'Only statements that changed')),
+      table([['Before','n'],['After','n'],['Change','n'],['Statement']],
+        statements.map((row)=>el('tr',{},
+          el('td',{class:'n'},row.before||'–'),el('td',{class:'n'},row.after||'–'),
+          el('td',{class:'n'},row.after===0?el('span',{class:'better'},'removed'):change(row.before,row.after,'')),
+          el('td',{},el('pre',{},row.raw)))),
+        bySql.size?'No statements differ between the two requests.':'Neither request ran any queries.'))];
+}
+
+// ---- request detail ----
+function queriesTab(d){
+  const toggle=el('label',{class:'check'},el('input',{type:'checkbox',checked:state.grouped,onchange:(e)=>{state.grouped=e.target.checked;route(true);}}),'Group identical statements');
+  const search=state.search['detail']||'';
+  const input=el('input',{type:'search',placeholder:'Filter statements',spellcheck:'false',value:search});
+  input.dataset.search='detail';
+  input.oninput=()=>{state.search['detail']=input.value;route(true);};
+  const bar=el('div',{class:'bar'},input,toggle);
+  if(!d.dbCalls){return [bar,el('div',{class:'empty'},'This request ran no queries.')];}
+  const transactions=d.transactions||[];
+  const txNumber=new Map(transactions.map((t,index)=>[t.id,index+1]));
+  if(!state.grouped){
+    const byUid=new Map(d.statements.flatMap((s)=>s.executions.map((e)=>[e.uid,e])));
+    const started=new Set();
+    const parts=d.parts||[];
+    let lastPart=-1;
+    return [bar,table([['#','n'],['Query'],['Duration','n'],['']],
+      d.timeline.filter((q)=>matchText(search,q.raw)).flatMap((q)=>{
+        const part=parts.length>1&&q.part!==lastPart&&parts[q.part];
+        lastPart=q.part;
+        const partHeading=part&&el('tr',{class:'txhead'},el('td',{colspan:'4'},'Request '+(q.part+1)+' · ',el('span',{class:'mono'},part.operationName||''),' · '+part.service));
+        const number=txNumber.get(q.tx);
+        // Statements on other connections can run in between, so the heading marks where a transaction starts.
+        const heading=number&&!started.has(q.tx)&&el('tr',{class:'txhead'},el('td',{colspan:'4'},transactionLabel(transactions[number-1],number)));
+        started.add(q.tx);
+        return [partHeading,heading,el('tr',{class:'click'+(number?' intx':''),onclick:()=>go('/queries/'+q.uid)},
+          el('td',{class:'n'},q.order),
+          el('td',{class:'mono q'},el('div',{class:'qrow'},number&&el('span',{class:'tag',title:'Part of transaction '+number},'T'+number),verbTag(q.raw),el('div',{class:'qline'},oneLine(q.raw)))),
+          el('td',{class:'n'},ms(q.ms)),
+          el('td',{},copyButton(()=>queryWithValues(q.raw,(byUid.get(q.uid)||{params:[]}).params))))];
+      }).filter(Boolean),'Nothing matches the filter.')];
+  }
+  const strip=transactions.length>0&&el('div',{class:'txstrip'},
+    transactions.map((t,index)=>el('button',{class:'txchip',type:'button',title:'Show the statements in the order they ran',
+      onclick:()=>{state.grouped=false;route(true);}},transactionLabel(t,index+1))));
+  return [bar,strip,table([['Times','n'],['Total','n'],['Query']],
+    d.statements.filter((s)=>matchText(search,s.raw)).map((s)=>{
+      const isOpen=state.open.has(s.sql);
+      const picked=()=>s.executions.find((e)=>String(e.uid)===state.pick.get(s.sql))||s.executions[0];
+      // Only worth choosing between calls when their values differ.
+      const choices=new Set(s.executions.map((e)=>JSON.stringify(e.params))).size>1;
+      const picker=choices&&el('select',{class:'qpick',title:'Which call\'s parameter values to copy','aria-label':'Parameter values to copy',
+        onchange:(event)=>{state.pick.set(s.sql,event.target.value);}},
+        s.executions.map((e)=>el('option',{value:e.uid,selected:e.uid===picked().uid},'Call #'+e.order+': '+paramsPreview(e.params))));
+      const body=el('td',{class:'q'},
+        el('div',{class:'qrow'},
+          el('button',{class:'qtoggle mono',type:'button','aria-expanded':String(isOpen),title:isOpen?'Collapse':'Show the full query and its parameters',
+            onclick:()=>{if(isOpen){state.open.delete(s.sql);}else{state.open.add(s.sql);}route(true);}},
+            el('span',{class:'chev'},isOpen?'▼':'▶'),verbTag(s.raw),el('span',{class:'qline'},oneLine(s.raw))),
+          s.executions.some((e)=>e.tx)&&el('span',{class:'tag',title:'Ran inside a transaction'},[...new Set(s.executions.map((e)=>txNumber.get(e.tx)).filter(Boolean))].map((n)=>'T'+n).join(' ')),
+          picker,
+          copyButton(()=>queryWithValues(picked().raw||s.raw,picked().params))),
+        isOpen&&[el('pre',{class:'qfull'},s.raw),
+          ...s.executions.map((e)=>el('div',{class:'exec'},
+            el('div',{class:'qrow'},
+              el('div',{class:'muted',style:'flex:1'},link('/queries/'+e.uid,'Call #'+e.order),' · '+ms(e.ms)+(txNumber.has(e.tx)?' · transaction '+txNumber.get(e.tx):'')),
+              copyButton(()=>queryWithValues(e.raw||s.raw,e.params))),
+            el('pre',{},e.params.length?e.params.map((p,i)=>'$'+(i+1)+' = '+p).join('\n'):'(no parameters)')))]);
+      return el('tr',{},el('td',{class:'n'+(s.calls>1?' warn':'')},s.calls+'×'),el('td',{class:'n'},ms(s.ms)),body);
+    }),'Nothing matches the filter.')];
+}
+function httpTab(d){
+  return [table([['Request'],['Status'],['Duration','n']],
+    d.http.map((h)=>el('tr',{class:'click',onclick:()=>go('/http/'+h.uid)},
+      el('td',{class:'mono'},el('span',{class:'tag'},h.method),h.url),
+      el('td',{},statusTag(h.status,h.error)),
+      el('td',{class:'n'},ms(h.ms)))),'This request sent no outgoing HTTP requests.')];
+}
+function payloadTab(d){
+  const parts=(d.parts&&d.parts.length>1?d.parts:[d]).filter((part)=>part.query);
+  if(!parts.length){return [el('div',{class:'empty'},'No GraphQL payload was recorded for this request.')];}
+  return [el('div',{style:'padding:16px;display:grid;gap:14px'},parts.map((part,index)=>[
+    parts.length>1&&el('div',{class:'muted'},'Request '+(index+1)+' · ',el('span',{class:'mono'},part.operationName||''),' · '+part.service),
+    el('div',{},el('h2',{},'Operation'),el('pre',{class:'box'},part.query)),
+    el('div',{},el('h2',{},'Variables'),el('pre',{class:'box'},part.variables||'{}'))]))];
+}
+// The gateway names each request it sends "<operation>__<service>__<step>".
+const clientOperation=(name)=>String(name||'').replace(/__[A-Za-z0-9-]+__\d+$/,'');
+const serviceTags=(r)=>(r.services||[r.service]).map((name)=>el('span',{class:'tag svc'},name));
+async function requestPage(id){
+  // Requests opened earlier stay viewable while the service is down.
+  let d;
+  try{
+    d=await api('/requests/'+id);
+    if(d){state.details.set(id,d);if(state.details.size>30){state.details.delete(state.details.keys().next().value);}}
+  }catch(e){
+    d=state.details.get(id);
+    if(!d){throw e;}
+  }
+  if(!d){state.shown=null;return notFound('Request');}
+  const parts=d.parts||[];
+  // Another request of the same operation can finish after this page was opened.
+  state.shown={id:d.id,trace:d.trace,name:clientOperation(d.operationName),parts:parts.length||1};
+  const tabs=[['queries','Queries',d.dbCalls],['http','HTTP client',d.httpCalls],['payload','Payload',null],['headers','Headers',null]];
+  const body=state.tab==='http'?httpTab(d):state.tab==='payload'?payloadTab(d):state.tab==='headers'?[headersList(d.headers)]:queriesTab(d);
+  return [
+    el('div',{style:'margin-bottom:10px'},link('/requests','← Requests')),
+    el('h1',{},serviceTags(d),el('span',{class:'tag'},d.operationType||d.method),requestLabel(d)),
+    el('div',{class:'card pad'},
+      el('div',{class:'stats'},
+        el('div',{},el('span',{},'Status'),el('b',{},d.status??'–')),
+        el('div',{},el('span',{},'Duration'),el('b',{},ms(d.durationMs))),
+        el('div',{},el('span',{},'Queries'),el('b',{},d.dbCalls)),
+        el('div',{},el('span',{},'Repeated queries'),el('b',{class:d.repeated?'warn':''},d.repeated)),
+        el('div',{},el('span',{},'Writes'),el('b',{},d.timeline.filter((q)=>isWrite(q.raw)).length)),
+        el('div',{},el('span',{},'Transactions'),el('b',{},d.transactions?d.transactions.length:'–')),
+        el('div',{},el('span',{},'Query time'),el('b',{},ms(d.dbMs))),
+        el('div',{},el('span',{},'HTTP calls'),el('b',{},d.httpCalls)),
+        el('div',{},el('span',{},'HTTP time'),el('b',{},ms(d.httpMs)))),
+      el('p',{class:'muted',style:'margin:12px 0 0'},new Date(d.startedAt).toLocaleString()+' · '+d.method+' '+d.url),
+      parts.length>1&&el('p',{class:'muted',style:'margin:4px 0 0'},'The gateway sent this operation as '+parts.length+' requests: ',
+        parts.map((part,index)=>[index?', ':'',el('span',{class:'mono'},part.operationName||d.url),' ('+part.service+', '+(part.operationType||'request')+', '+part.dbCalls+(part.dbCalls===1?' query':' queries')+', '+ms(part.durationMs)+')']),
+        '. Their queries are shown together below.')),
+    el('div',{class:'card'},
+      el('div',{class:'tabs'},tabs.map(([key,label,count])=>el('button',{class:state.tab===key?'on':'',onclick:()=>{state.tab=key;route(true);}},label+(count===null?'':' ('+count+')')))),
+      body)];
+}
+
+// ---- entry details ----
+async function queryPage(uid){
+  const q=await api('/queries/'+uid);
+  if(!q){return notFound('Query');}
+  return [
+    el('div',{style:'margin-bottom:10px'},backLink(q)),
+    el('h1',{},'Query'),
+    el('div',{class:'card'},el('dl',{},
+      el('dt',{},'Time'),el('dd',{},new Date(q.at).toLocaleString()),
+      el('dt',{},'Duration'),el('dd',{},ms(q.ms)),
+      el('dt',{},'Request'),el('dd',{},parentLink(q)),
+      q.timesInRequest>1&&[el('dt',{},'Repeats'),el('dd',{class:'warn'},'This statement ran '+q.timesInRequest+' times in that request')])),
+    el('div',{class:'card pad'},el('div',{class:'qrow',style:'margin-bottom:10px'},el('h2',{style:'flex:1;margin:0'},'SQL'),copyButton(()=>queryWithValues(q.raw,q.params))),el('pre',{class:'box'},q.raw)),
+    el('div',{class:'card pad'},el('h2',{},'Parameters'),
+      el('pre',{class:'box'},q.params.length?q.params.map((p,i)=>'$'+(i+1)+' = '+p).join('\n'):'(no parameters)'))];
+}
+async function httpEntryPage(uid){
+  const h=await api('/http/'+uid);
+  if(!h){return notFound('HTTP request');}
+  return [
+    el('div',{style:'margin-bottom:10px'},backLink(h)),
+    el('h1',{},el('span',{class:'tag'},h.method),h.url),
+    el('div',{class:'card'},el('dl',{},
+      el('dt',{},'Time'),el('dd',{},new Date(h.at).toLocaleString()),
+      el('dt',{},'Status'),el('dd',{},statusTag(h.status,h.error),h.error||''),
+      el('dt',{},'Duration'),el('dd',{},ms(h.ms)),
+      el('dt',{},'Sent with'),el('dd',{},h.via==='fetch'?'fetch / undici':'http / https module'),
+      el('dt',{},'Triggered by'),el('dd',{},parentLink(h)))),
+    el('div',{class:'card pad'},el('h2',{},'Payload'),bodyBlock(h.requestBody,'No request body was sent.')),
+    el('div',{class:'card pad'},el('h2',{},'Response'),bodyBlock(h.responseBody,h.status===null?'No response was received.':'No response body was recorded.')),
+    el('div',{class:'card'},el('div',{class:'bar'},el('b',{},'Request headers')),headersList(h.requestHeaders)),
+    el('div',{class:'card'},el('div',{class:'bar'},el('b',{},'Response headers')),headersList(h.responseHeaders))];
+}
+
+// ---- routing ----
+const routes=[
+  [/^\/requests\/([\w.-]+-\d+)$/,requestPage,'requests'],
+  [/^\/queries\/([\w.-]+-\d+)$/,queryPage,'requests'],
+  [/^\/http\/([\w.-]+-\d+)$/,httpEntryPage,'requests'],
+  [/^\/compare\/([\w.-]+-\d+)\/([\w.-]+-\d+)$/,comparePage,'requests'],
+  [/^\/(requests)?$/,requestsPage,'requests'],
+];
+async function route(keepFocus){
+  const token=++renderToken;
+  const found=routes.find(([pattern])=>pattern.test(location.pathname))||routes[routes.length-1];
+  const match=location.pathname.match(found[0])||[];
+  for(const a of document.querySelectorAll('[data-nav]')){a.classList.toggle('on',a.dataset.nav===found[2]);}
+  const active=document.activeElement;
+  const focused=keepFocus&&active&&active.dataset&&active.dataset.search?{kind:active.dataset.search,at:active.selectionStart}:null;
+  let nodes;
+  try{nodes=await found[1](...match.slice(1));}
+  catch(e){
+    // During a restart an automatic refresh keeps what is on screen instead of blanking it.
+    if(keepFocus&&view.childElementCount){return;}
+    nodes=[el('h1',{},'Offline'),el('p',{class:'muted'},'The service is not answering, and this page was not opened before it stopped, so there is nothing to show yet. It loads by itself when the service is back.')];
+  }
+  if(token!==renderToken){return;}
+  const scroll=window.scrollY;
+  view.replaceChildren(...nodes.flat().filter(Boolean));
+  if(keepFocus){window.scrollTo(0,scroll);}
+  if(focused){
+    const input=view.querySelector('[data-search="'+focused.kind+'"]');
+    if(input){input.focus();try{input.setSelectionRange(focused.at,focused.at);}catch(e){}}
+  }
+}
+function go(path){
+  if(path!==location.pathname){history.pushState(null,'',path);state.open.clear();state.pick.clear();state.shown=null;state.search.detail='';}
+  route(false);window.scrollTo(0,0);
+}
+for(const a of document.querySelectorAll('[data-nav]')){a.onclick=(e)=>{e.preventDefault();go(a.getAttribute('href'));};}
+window.onpopstate=()=>route(false);
+
+async function refreshCounts(){
+  let meta;
+  let requests;
+  // A failed fetch means nothing is answering on this port, which is what a restart looks like.
+  try{[meta,requests]=await Promise.all([api('/meta'),api('/requests')]);}
+  catch(e){state.offline=true;showStatus();return;}
+  const wasOffline=state.offline;
+  state.offline=false;showStatus();
+  // Whatever page is open catches up as soon as the service answers again.
+  if(wasOffline){route(true);}
+  try{
+    document.title='GoDebug';
+    document.getElementById('countRequests').textContent=requests?requests.length:'';
+    if(requests&&state.shown&&state.shown.trace&&/^\/requests\/./.test(location.pathname)){
+      const shown=state.shown;
+      const same=requests.filter((r)=>r.trace===shown.trace&&clientOperation(r.operationName)===shown.name);
+      const row=same.find((r)=>r.id===shown.id);
+      // Either this operation gained a request, or the request shown became part of a larger operation.
+      if(row?(row.parts||1)!==shown.parts:same.length>0){route(true);}
+    }
+    const hints={connected:'Connected: its requests are captured.',
+      started:'Not connected: running without GoDebug. Start it with yarn start:go-debug to connect it.',
+      stopped:'Not connected: not running. Its saved requests are still listed.'};
+    document.getElementById('services').replaceChildren(...((meta&&meta.services)||[]).map((svc)=>
+      el('button',{class:'svcrow'+(svc.status==='connected'?'':' off'),title:hints[svc.status],onclick:()=>{state.search.requests=state.search.requests===svc.service?'':svc.service;go('/requests');route(false);}},
+        el('span',{class:'dot '+svc.status,role:'img','aria-label':svc.status==='connected'?'Connected':'Not connected'}),el('span',{},svc.service))));
+  }catch(e){}
+}
+document.getElementById('clear').onclick=async()=>{
+  if(!confirm('Clear all recorded requests for every service?')){return;}
+  await fetch('/api/clear',{method:'POST'});refreshCounts();go('/requests');
+};
+function showStatus(){
+  const button=document.getElementById('pause');
+  const offline=state.offline&&!state.paused;
+  button.classList.toggle('live',!state.paused&&!offline);
+  button.classList.toggle('offline',offline);
+  button.setAttribute('aria-pressed',String(state.paused));
+  button.title=state.paused?'Updates are paused. Click to resume.'
+    :offline?'Offline: the service is not answering. It reconnects by itself.'
+    :'Updating automatically. Click to pause.';
+  document.getElementById('pauseLabel').textContent=state.paused?'Paused':offline?'Offline':'Live';
+  document.getElementById('offlineNote').hidden=!state.offline;
+  document.querySelector('.side').classList.toggle('offline',state.offline);
+  // Clearing needs the service; it cannot be done while offline.
+  document.getElementById('clear').disabled=state.offline;
+}
+document.getElementById('pause').onclick=()=>{
+  state.paused=!state.paused;
+  showStatus();
+  if(!state.paused){refreshCounts();route(true);}
+};
+// Lists refresh on their own; detail pages are static once loaded.
+setInterval(()=>{
+  if(state.paused){return;}
+  refreshCounts();
+  if(/^\/(requests)?$/.test(location.pathname)){route(true);}
+},1500);
+refreshCounts();route(false);
+</script></body></html>
